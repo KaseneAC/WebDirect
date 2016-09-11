@@ -1,0 +1,17 @@
+{
+  "name": "webdirect",
+  "version": "0.0.1",
+  "description": "Simple Content Management System",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kasene A. Clark",
+  "license": "ISC",
+  "dependencies": {
+    "bootstrap": "^3.3.7",
+    "express": "^4.14.0",
+    "jade": "^1.11.0",
+    "pug": "^2.0.0-beta6"
+  }
+}

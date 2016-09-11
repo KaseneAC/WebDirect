@@ -1,0 +1,36 @@
+include templates/header.pug
+body
+
+	// Navigation Bar
+	nav(class="navbar navbar-default")
+		div(class="container-fluid")
+			div(class="navbar-header")
+				// Mobile Grouping
+				button(type="button", class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navCollapse", aria-expanded="false")
+					each iconbar in [1, 2, 3]
+						span(class="icon-bar")
+				a(class="navbar-brand" href="#")="WebDirect"
+
+
+			div(class="collapse navbar-collapse" id="navCollapse")
+				ul(class="nav navbar-nav")
+					each navitem in navData
+						if (pageObject == navitem)
+							li(class="active")
+								a(href=navitem['link'])=navitem['display']
+						else
+							li
+								a(href=navitem['link'])=navitem['display']
+
+
+
+
+	if (pageObject == navData['dashboard'])
+		include content/dash.pug
+	if (pageObject == navData['pages'])
+		include content/pages.pug
+
+
+
+
+	include templates/footer.pug
