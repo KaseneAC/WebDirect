@@ -216,6 +216,31 @@ app.get('/admin/:pageName', function(req, res){
 
 });
 
+// Load Valid Pages From The Database
+// --------------------------------------------------------------------------------
+var validPages = [];
+
+connection.query("SELECT * FROM pages", function(err, result){
+	if (err) throw err;
+
+	if (result.length > 0)
+	{
+		result.forEach(function(item){
+			var page = {
+				name:item['page-name'],
+			};
+			validPages.push(page);
+		});
+
+	} else
+	{
+		console.log("Something went wrong while loading valid pages.");
+	}
+
+});
+
+
+
 // Routing For Site
 // --------------------------------------------------------------------------------
 app.get('/:pageName', function(req, res){
@@ -227,10 +252,23 @@ app.get('/:pageName', function(req, res){
 	// we load that page, if there is no match, we
 	// spring a 404 page. Simple enough right?
 
+	function matchValidPage(pagename)
+	{
+		validPages.forEach(function(page){
+			if (page.name == pagename)
+			{
+				// It's a match!
+				// Load this page
+			}
+		});
+	}
+
 
 	var pageData = {
 		pageTitle: "",
 	};
+
+
 
 	var themeData = configData.themeData;
 
@@ -248,5 +286,5 @@ function renderPage(res, path, pageData)
 // Listen For Incoming Connections
 // -------------------------------------------------------------------
 app.listen(3000, function(){
-	console.log("WebDir:Listening On Port 3000");
+	console.log("Listening On Port 3000");
 });
