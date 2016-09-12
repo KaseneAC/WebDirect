@@ -3,3 +3,16 @@
 div(class="container")
 	div(class="page-header")
 		h1="Pages"
+
+	table(class="table table-bordered")
+		// Headers
+		thead
+			tr
+				each header in ['Page ID', 'Page Name']
+					th=header
+		tbody
+			each page in dbPages
+				tr
+					td=page.id
+					td=page.name
+

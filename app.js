@@ -3,11 +3,15 @@
 
 //---------------------------------------------------------------------------------
 var express = require("express");
+var async = require("async");
 var app = express();
 app.set('view engine', 'pug');
 app.use('/bootstrap', express.static(__dirname + '/node_modules/bootstrap/dist/'));
 //---------------------------------------------------------------------------------
 
+// Global Data
+// --------------------------------------------------------------------------------
+var configData = {};
 
 // Database Functions
 // --------------------------------------------------------------------------------
@@ -23,6 +27,51 @@ connection.connect(function(err){
 	if (err) throw err;
 	console.log("Successfully Connected To DB");
 });
+
+// Configuration
+// --------------------------------------------------------------------------------
+// Theme Config
+connection.query("SELECT configval FROM config WHERE configname='themepath'", function(err, result){
+
+	// If the theme setting doesnt exist then create it
+	if (err && err.code == "ER_BAD_FIELD_ERROR")
+	{
+		// MySQL told us that themepath doesn't actually exist.
+		// So in this case im handling the error by creating the
+		// config entry and setting it to the default basic theme.
+		console.log("No Theme Config Found, Creating New Entry...");
+
+		connection.query("INSERT INTO config (configname, configval) VALUES ('themepath', 'themes/basic/')",
+		 function(err, result){
+		 	if (err) throw err;
+
+		 	if (result.affectedRows)
+		 	{
+		 		console.log("Done.");
+		 	} else
+		 	{
+		 		console.log("Error creating new theme setting, check this out!");
+		 	}
+
+		 });
+
+		result.themepath = "themes/basic/";
+
+	}
+
+	// Load the theme
+	var themeData = {};
+	themeData['themepath'] = result[0].configval;
+	themeData['index'] = themeData['themepath']+"views/index.pug";
+	// Add to config data object
+	configData['themeData'] = themeData;
+	console.log(configData);
+
+	// Make the themepath serve static files
+	app.use('/theme', express.static(__dirname + themeData['themepath']+"assets/"));
+
+});
+
 
 
 // Routing For The Administrative Dashboard
@@ -47,10 +96,18 @@ app.get('/admin/:pageName', function(req, res){
 			name:'pages',
 			display:"Pages",
 			link: '/admin/pages'
+		},
+		posts:{
+			name:'posts',
+			display:"Posts",
+			link:'/admin/posts'
 		}
 	};
 
 	pageData['navData'] = navData;
+
+
+
 
 
 	switch(req.params['pageName'])
@@ -58,60 +115,135 @@ app.get('/admin/:pageName', function(req, res){
 		case 'dashboard':
 		{
 			pageData['pageObject'] = navData['dashboard'];
-
+			
 			var dbPosts = 0;
-			var dbPages = 0;
 			var dbUsers = 0;
+			var dbPages = 0;
 
-			connection.query("SELECT * FROM posts", function(err, results){
-				if (err) throw err;
-				dbPosts = Object.keys(results).length;
 
-				connection.query("SELECT * FROM pages", function(err, results){
-					if (err) throw err;
-					dbPages = Object.keys(results).length;
+			async.parallel([
 
-					connection.query("SELECT * FROM users", function(err, results){
-						if (err) throw err;
-						dbUsers = Object.keys(results).length;
-
-						pageData['dbObject'] = {
-							posts:{
-								num:dbPosts,
-								display:"Posts:"
-							},
-							pages:{
-								num:dbPages,
-								display:"Pages:"
-							},
-							users:{
-								num:dbUsers,
-								display:"Users:"
-							}
-						};
-
+				function(callback)
+				{	
+					connection.query("SELECT * FROM posts", function(err, result){
+						dbPosts = result.length;
+						callback(err);
 					});
+				},
+				function(callback)
+				{
+					connection.query("SELECT * FROM users", function(err, result){
+						dbUsers = result.length;
+						callback(err);
+					});
+				},
+				function(callback)
+				{
+					connection.query("SELECT * FROM pages", function(err, result){
+						dbPages = result.length;
+						callback(err);
+					});
+				}
 
-				});
 
+			], function(err){
+				if (err) throw err;
+
+				// Arrange Data
+				pageData['dbObject'] = {
+					pages:{
+						num:dbPages,
+						display:"Pages:"
+					},
+					posts:{
+						num:dbPosts,
+						display:"Posts:"
+					},
+					users:{
+						num:dbUsers,
+						display:"Users:"
+					}
+				};
+
+				renderPage(res, 'admin/index', pageData);
 			});
 
-			console.log(pageData['dbObject']);
 
 			break;
 		}
 		case 'pages':
 		{
 			pageData['pageObject'] = navData['pages'];
+
+			var dbPages = [];
+
+			async.parallel([
+
+				function (callback)
+				{
+					connection.query("SELECT * FROM pages", function(err, result){
+						if (err) throw err;
+
+						result.forEach(function(item){
+							var page = {id:item['id'], name:item['page-name']};
+							dbPages.push(page);
+						});
+
+						callback(err);
+					})
+				}
+
+
+			]
+			, function(err){
+				if (err) throw err;
+				pageData['dbPages'] = dbPages;
+				renderPage(res, 'admin/index', pageData);
+			});
+			
+			break;
+		}
+		case 'posts':
+		{
+			pageData['pageObject'] = navData['posts'];
+			renderPage(res, 'admin/index', pageData);
 			break;
 		}
 	}
 
-	res.render('admin/index', pageData);
+	
 
 
 });
 
+// Routing For Site
+// --------------------------------------------------------------------------------
+app.get('/:pageName', function(req, res){
+
+
+	// So we load all the pages from the db,
+	// try to match our get request param with
+	// all the valid pages. If there is a match,
+	// we load that page, if there is no match, we
+	// spring a 404 page. Simple enough right?
+
+
+	var pageData = {
+		pageTitle: "",
+	};
+
+	var themeData = configData.themeData;
+
+	renderPage(res, themeData.index);
+
+});
+
+
+// Render Page Function
+function renderPage(res, path, pageData)
+{
+	res.render(path, pageData);
+}
 
 // Listen For Incoming Connections
 // -------------------------------------------------------------------
